@@ -77,22 +77,13 @@ pipeline {
         }
         stage ('build docker-images') {
             steps {
-                dir("${WORKSPACE}/${dockerImagesRepo}") {
-                    script {
-                        sh '''
-                        cd base
-                        ./build.sh
-                        cd ../showcase
-                        ./build.sh
-                        cd ../kie-server/base
-                        ./build.sh
-                        cd ../showcase
-                        ./build.sh
-                        cd ../../server
-                        ./build.sh
-                        podman images '''
-                    }
-               }
+                ['base', 'showcase', 'kie-server/base', 'kie-server/showcase', 'server'].forEach(folder -> 
+                    dir("${WORKSPACE}/${dockerImagesRepo}/${folder}") {
+                        script {
+                            sh './build.sh'
+                        }
+                   }
+                )
             }
         }
         stage('test docker images') {
