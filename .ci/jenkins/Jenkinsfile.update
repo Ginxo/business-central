@@ -18,11 +18,11 @@ PR_BODY="Please review and merge"
 
 def failureDockerImages = []
 def images = [
-        [id: "kiegroup/business-central-workbench", file: "docker-images-tests/business-central.test.script" ],
-        [id: "kiegroup/business-central-workbench-showcase", file: "docker-images-tests/business-central-showcase.test.script" ],
-        [id: "kiegroup/jbpm-server-full", file: "docker-images-tests/jbpm-server-full.test.script" ],
-        [id: "kiegroup/kie-server", file: "docker-images-tests/kie-server.test.script" ],
-        [id: "kiegroup/kie-server-showcase", file: "docker-images-tests/kie-server-showcase.test.script" ]
+        [id: "kiegroup/business-central-workbench", file: "podman-images-tests/business-central.test.script" ],
+        [id: "kiegroup/business-central-workbench-showcase", file: "podman-images-tests/business-central-showcase.test.script" ],
+        [id: "kiegroup/jbpm-server-full", file: "podman-images-tests/jbpm-server-full.test.script" ],
+        [id: "kiegroup/kie-server", file: "docker-podman-tests/kie-server.test.script" ],
+        [id: "kiegroup/kie-server-showcase", file: "podman-images-tests/kie-server-showcase.test.script" ]
 ]
 
 pipeline {
@@ -49,7 +49,7 @@ pipeline {
                 }
             }
         }
-        stage('create branch for PR'){
+        /*stage('create branch for PR'){
             steps{
                 dir("${WORKSPACE}/${dockerImagesRepo}"){
                     script{
@@ -75,7 +75,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }*/
         stage('cleanup all containers and images') {
             steps {
                 script {
@@ -83,58 +83,49 @@ pipeline {
                 }
             }
         }
-        stage ('build docker-images') {
+        stage ('build podman images') {
             steps {
-                dir("${WORKSPACE}/${dockerImagesRepo}") {
-                    script {
-                        sh '''
-                        cd base
-                        ./build.sh
-                        cd ../showcase
-                        ./build.sh
-                        cd ../kie-server/base
-                        ./build.sh
-                        cd ../showcase
-                        ./build.sh
-                        cd ../../server
-                        ./build.sh
-                        podman images '''
-                    }
-               }
+                ['base', 'showcase', 'kie-server/base', 'kie-server/showcase', 'server'].forEach{folder ->
+                    dir("${WORKSPACE}/${dockerImagesRepo}/${folder}") {
+                        script {
+                            sh './build.sh'
+                        }
+                   }
+                }
             }
         }
         images.forEach{image -> {
-            stage('Run Docker') {
+            stage("run ${images}") {
                 steps {
                     script{
-                      sh "docker run -p 8080:8080 -p 8001:8001 -i -t ${image.id}"
+                      sh "podman run -p 8080:8080 -p 8001:8001 -i -t ${image.id}"
                     }
                 }
             }
-            stage('Execute tests') {
+            stage("execute ${image} test") {
                 steps {
                     script{
                         try {
-                            def scriptTemplate = readFile("./docker-images-tests/${image.file}")
+                            def scriptTemplate = readFile("./podman-images-tests/${image.file}")
                             script(scriptTemplate)
                         }
                         catch(e) {
-                            failureDockerImages.add(image.id)
+                            failurePodmanImages.add(image.id)
                         }
                     }
                 }
             }
-            stage('Terminate Docker image') {
+            stage("stop ${image}") {
                 steps {
                     script{
-                      sh 'docker stop $(docker ps -lq)'
+                      sh 'podman stop $(podman ps -lq)'
                     }
                 }
             }
-            stage('Check errors') {
+            stage("check errors for ${image}") {
                 steps {
-                    if(failureDockerImages.size() > 0) {
-                      def errorMessage = "[ERROR] These images ${failureDockerImages} are in error state. Please check the logs"
+                    if(failurePodmanImages.size() > 0) {
+                      def errorMessage = "[ERROR] These images ${failurePodmanImages} are in error state. Please check the logs"
                       println errorMessage
                       throw new RuntimeException(errorMessage)
                     } else {
@@ -142,8 +133,7 @@ pipeline {
                     }
                 }
             }
-    }
-}}
+        }}
         /*stage('create tag') {
             steps {
                 dir("${WORKSPACE}/${dockerImagesRepo}") {

@@ -9,7 +9,7 @@ if(isAuthenticated) {
                 println "[INFO] You are already authenticated with cookie ${loginCookie}"
         }
         else {
-                def errorMessage = "[ERROR] The cookie does not exist on the header response. Please check the response and request are both right"
+                def errorMessage = "[ERROR] The cookie does not exist in the header response. Please check the response and request are both right"
                 println errorMessage
                 throw new RuntimeException(errorMessage)
         }
