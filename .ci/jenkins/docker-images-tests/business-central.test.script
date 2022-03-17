@@ -1,0 +1,20 @@
+def loginResponse = sh("curl -s 'http://localhost:8080/business-central/j_security_check?locale=null' --data-raw 'j_username=krisv&j_password=krisv' -i", stdout: true)
+
+def loginResponseMatcher = loginResponse =~ /HTTP\/1\.1 302 Found/
+def isAuthenticated = loginResponseMatcher.size() == 1
+if(isAuthenticated) {
+        def matcher = loginResponse =~ /(Set-Cookie:\s)([^;]*)/
+        def loginCookie = matcher && matcher.length > 0 && matcher[0][2]
+        if(loginCookie) {
+                println "[INFO] You are already authenticated with cookie ${loginCookie}"
+        }
+        else {
+                def errorMessage = "[ERROR] The cookie does not exist on the header response. Please check the response and request are both right"
+                println errorMessage
+                throw new RuntimeException(errorMessage)
+        }
+} else {
+        def errorMessage = "[ERROR] Authentication error. Please check whether the application is up or the user and password are the proper ones"
+        println errorMessage
+        throw new RuntimeException(errorMessage)
+}

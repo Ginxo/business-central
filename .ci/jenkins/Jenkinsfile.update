@@ -16,6 +16,14 @@ COMMIT_MSG="bumped up kie-version to ${N_K_F_V}"
 PR_BRANCH="bump_up_version_to_${N_K_F_V}"
 PR_BODY="Please review and merge"
 
+def failureDockerImages = []
+def images = [
+        [id: "kiegroup/business-central-workbench", file: "docker-images-tests/business-central.test.script" ],
+        [id: "kiegroup/business-central-workbench-showcase", file: "docker-images-tests/business-central-showcase.test.script" ],
+        [id: "kiegroup/jbpm-server-full", file: "docker-images-tests/jbpm-server-full.test.script" ],
+        [id: "kiegroup/kie-server", file: "docker-images-tests/kie-server.test.script" ],
+        [id: "kiegroup/kie-server-showcase", file: "docker-images-tests/kie-server-showcase.test.script" ]
+]
 
 pipeline {
     agent {
@@ -95,14 +103,48 @@ pipeline {
                }
             }
         }
-        stage('test docker images') {
-            steps {
-                script {
-                    echo "do nothing here"
+        images.forEach{image -> {
+            stage('Run Docker') {
+                steps {
+                    script{
+                      sh "docker run -p 8080:8080 -p 8001:8001 -i -t ${image.id}"
+                    }
                 }
             }
-        }
-        stage('create tag') {
+            stage('Execute tests') {
+                steps {
+                    script{
+                        try {
+                            def scriptTemplate = readFile("./docker-images-tests/${image.file}")
+                            script(scriptTemplate)
+                        }
+                        catch(e) {
+                            failureDockerImages.add(image.id)
+                        }
+                    }
+                }
+            }
+            stage('Terminate Docker image') {
+                steps {
+                    script{
+                      sh 'docker stop $(docker ps -lq)'
+                    }
+                }
+            }
+            stage('Check errors') {
+                steps {
+                    if(failureDockerImages.size() > 0) {
+                      def errorMessage = "[ERROR] These images ${failureDockerImages} are in error state. Please check the logs"
+                      println errorMessage
+                      throw new RuntimeException(errorMessage)
+                    } else {
+                      println "[INFO] All the images are OK"
+                    }
+                }
+            }
+    }
+}}
+        /*stage('create tag') {
             steps {
                 dir("${WORKSPACE}/${dockerImagesRepo}") {
                     script {
@@ -132,7 +174,7 @@ pipeline {
                  }
             }
         }
-        /*stage('create pullrequest'){
+        stage('create pullrequest'){
             steps{
                 dir("${WORKSPACE}/${dockerImagesRepo}"){
                     script {
@@ -147,7 +189,7 @@ pipeline {
                     echo "do nothing here"
                 }
             }
-        }
+        }*/
     }
     post {
         failure {
