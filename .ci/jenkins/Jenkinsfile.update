@@ -94,7 +94,7 @@ pipeline {
                 }
             }
         }
-        images.forEach{image -> {
+        images.forEach{image -> 
             stage("run ${images}") {
                 steps {
                     script{
@@ -133,7 +133,7 @@ pipeline {
                     }
                 }
             }
-        }}
+        }
         /*stage('create tag') {
             steps {
                 dir("${WORKSPACE}/${dockerImagesRepo}") {
